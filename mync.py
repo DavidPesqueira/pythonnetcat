@@ -21,13 +21,10 @@ def usage():
     print ("Python NetCat")
     print
     print ("Usage: mync.py -t TARGET_HOST -p PORT")
-    print ("-l --listen              - listen on [host]:[port] for ¬\
-                                       incoming connections")
-    print ("-e --execute=file_to_run - execute the given file upon ¬\
-                                       recieveing a connections")  
+    print ("-l --listen              - listen on [host]:[port] for incoming connections")
+    print ("-e --execute=file_to_run - execute the given file upon recieveing a connections")  
     print ("-c --command             - initialize a command shell")         
-    print ("-u --upload=destination  - upon receiving connection upload a ¬\
-                                       file and write [destiniation]")  
+    print ("-u --upload=destination  - upon receiving connection upload a file and write [destiniation]")  
     print
     print
     print ("Examples: ")
@@ -37,6 +34,123 @@ def usage():
     print ("echo 'ABCDEFGHI' | ./bhpnet.py -t 192.168.11.12 -p 13")
     sys.exit(0)
 
+
+def client_sender(buffer):
+        
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        try:
+                #Connect to target host
+                client.connect((target,port))
+
+                if len(buffer):
+                        client.send(buffer)
+                
+                while True:
+
+                        recv_len = 1
+                        response = ""
+
+                        while recv_len:
+
+                                data = client.recv(4096)
+                                recv_len = len(data)
+                                response+= data
+
+                                if recv_len < 4096:
+                                        break
+                        print (response),
+
+                        # Wait for more input
+                        buffer = input("")
+                        buffer += "\n"
+
+                        # Send
+                        client.send(buffer)
+
+        except:
+                print ("[*] Exception! GAH BAIL BAIL")
+
+                # Disconnect
+                client.close()
+
+def server_loop():
+        global target
+
+        # If no targetr is defined, listen on all interfaces
+        if not len(target):
+                target = "0.0.0.0"
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind((target, port))
+        server.listen(5)
+
+        while True:
+                client_socket, addr = server.accept()
+
+                # Spin off a thread to handle new client
+                client_thread = threading.Thread(target=client_handler, 
+                args=(client_socket,))
+                client_thread.start()
+
+def run_command(command):
+
+        #Trim newline
+        command = command.rstrip()
+
+        # Run the command and get output back
+        try:
+                output =subprocess.check_output(command,stderr=subprocess.STDOUT, shell=True)
+        except:
+                output ("Fail")
+
+        return output
+
+def client_handler(client_socket):
+        global upload
+        global execute
+        global command
+
+        if len(upload_destination):
+                # read in all of the bytes and write to our destination
+                file_buffer = ""
+                # keep reading data until none is available
+                while True:
+                        data = client_socket.recv(1024)
+                        if not data:
+                                break
+                        else:
+                                file_buffer += data
+                try:
+                        file_descriptor = open(upload_destination,"wb")
+                        file_descriptor.write(file_buffer)
+                        file_descriptor.close()
+                        # acknowledge that we wrote the file out
+                        client_socket.send("Successfully saved file to %s\r\n" % upload_destination)
+                except:
+                        client_socket.send("Failed to save file to %s\r\n" % upload_destination)
+                        # check for command execution
+        if len(execute):
+                # run the command
+                output = run_command(execute)
+                client_socket.send(output)
+
+        
+        # Another loop if shell was requested
+        if command:
+                
+                while True:
+                        # show a simple prompt
+                        client_socket.send("<BHP:#> ")
+                                # now we receive until we see a linefeed
+                        
+                        cmd_buffer = ""
+                        while "\n" not in cmd_buffer:
+                                cmd_buffer += client_socket.recv(1024)
+                        # send back the command output
+                                response = run_command(cmd_buffer)
+                        # send back the response
+                                client_socket.send(response)
 def main():
     global listen
     global port
@@ -88,42 +202,3 @@ def main():
                 if listen:
                         server_loop()
 main()
-
-def client_sender(buffer):
-        
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        try:
-                #Connect to target host
-                client.connect((target,port))
-
-                if len(buffer):
-                        client.send(buffer)
-                
-                while True:
-
-                        recv_len = 1
-                        response = ""
-
-                        while recv_len:
-
-                                data = client.recv(4096)
-                                recv_len = len(data)
-                                response+= data
-
-                                if recv_len < 4096:
-                                        break
-                        print (response),
-
-                        # Wait for more input
-                        buffer = input("")
-                        buffer += "\n"
-
-                        # Send
-                        client.send(buffer)
-
-        except:
-                print ("[*] Exception! GAH BAIL BAIL")
-
-                # Disconnect
-                client.close()
