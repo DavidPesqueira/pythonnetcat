@@ -34,7 +34,7 @@ def usage():
     print ("mync.py -t 192.168.0.1 -p 5555 -l -c")
     print ("mync.py -t 192.168.0.1 -p 5555 -l -u=c:\\target.exe")
     print ("mync.py -t 192.168.0.1 -p 5555 -l -e=\"cat /etc/passwd\"")
-    print ("echo 'ABCDEFGHI' | ./bhpnet.py -t 192.168.11.12 -p 135")
+    print ("echo 'ABCDEFGHI' | ./bhpnet.py -t 192.168.11.12 -p 13")
     sys.exit(0)
 
 def main():
